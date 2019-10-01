@@ -1,0 +1,6 @@
+/graphite-writer-stats
+.idea/
+.git/
+build/
+configs/
+README.md

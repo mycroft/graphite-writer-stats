@@ -1,0 +1,47 @@
+{
+  "rules": [
+    {
+      "name": "aggreg",
+      "pattern": [
+        "foo",
+        "aggregated"
+      ],
+      "applicationNamePosition": 2
+    },
+    {
+      "name": "anotheraggreg",
+      "pattern": [
+        "foo",
+        "agglo"
+      ],
+      "applicationNamePosition": 2
+    },
+    {
+      "name": "aggreg-all",
+      "pattern": [
+        "foo",
+        "aggreg-all"
+      ],
+      "applicationNamePosition": 2
+    },
+    {
+      "name": "legacy-foo",
+      "pattern": [
+        "prometheus",
+        "foo"
+      ],
+      "applicationNamePosition": 1
+    },
+    {
+      "name": "start-with-foo",
+      "pattern": [
+        "foo"
+      ],
+      "applicationNamePosition": 1
+    },
+    {
+      "name": "start-by-app",
+      "applicationNamePosition": 0
+    }
+  ]
+}
