@@ -1,0 +1,12 @@
+language: go
+script: make build-dev
+services:
+- docker
+before_install: make docker-build
+deploy:
+  provider: releases
+  api_key:
+    secure: el8Kswj7uYXx3kvv02N3erQnvEoATiEubABl2tzZl23XJfj7X1q3nXteD8vIWIPc/7BxAFGIc/IAVD8EotsCS8ZS0KrxgIyl/PMxsa/Zk4OQWYW3aPrpjTfepVpQR87+z93dVoGdCt1zV7juHq/fvx/Jlnf6+fMVvUJLyTdqXnrccCYgBiSQOdI7zVyEY2udQlL2rdi97lJsJJIUX6hLGTaUmcADXDXLcUq9oMV9xC55AUFjBRkHgfP9ixv+JVundK9z01IS9CX8zQTJ1IJGyyrsqfC4LQp3jQLq00SpHMeyJWIPU9uI7omaz6fk0tKK8ayWAbrP8OkomTMcTwLW/Kwjt3UcLU1n6+OJ82Gbeyg126vYJxMf69zbu/+0urPq54enXb1C2s/Uwt9nnHuGZ+4wmQawRPy8AKathguSwoS6BvzXcQPOIIQXpUPM6R2vOsHMIawHpV1hBwZ/yy9NV6PTjr6H2mDbaJm1AWrGQlx/Wt2hegchE3YdyONxtyTRmOn86R0es58xSSLTHitLajbIPr2ynpLPYrb/nqXQWLYbPH70O1vOuYmWLTS69E5I7N4OVJMD8meci9ml8EQKcUtIg52QqJZxiIKzGlN5zpDuJj3X33m2ReYUjwv71p5/7GPJZBjfw99Zwvab8f5L5WqY+qdUFuhx3zv/5tXxYZ8=
+  file: graphite-writer-stats
+  on:
+    repo: criteo/graphite-writer-stats
