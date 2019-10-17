@@ -1,5 +1,5 @@
 export GO111MODULE := on
-all: fmt lint vet build-dev test run 
+all: fmt lint vet build-dev test 
 build-dev:
 	go build ./cmd/graphite-writer-stats/graphite-writer-stats.go
 fmt:

@@ -4,9 +4,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
 	"net/http"
-	"strconv"
 )
 
 var (
@@ -24,16 +22,10 @@ var (
 	})
 )
 
-func SetupPrometheusHTTPServer(logger *zap.Logger, port int, endpoint string) {
-	go func() {
-		portBinding := ":" + strconv.Itoa(port)
-		http.Handle(endpoint, promhttp.Handler())
-		err := http.ListenAndServe(portBinding, nil)
-		if err != nil {
-			logger.Panic("could not set up prometheus endpoint", zap.Error(err))
-		}
-	}()
+func GetPrometheusHTTPHandler() http.Handler {
+	return promhttp.Handler()
 }
+
 func IncDataPointToMetricErrorCounter() {
 	dataPointTometricErrorCount.Inc()
 }

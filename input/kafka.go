@@ -2,9 +2,11 @@ package input
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/Shopify/sarama"
 	"github.com/criteo/graphite-writer-stats/stats"
 	"go.uber.org/zap"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -13,13 +15,15 @@ import (
 )
 
 type Kafka struct {
-	logger *zap.Logger
-	topic  []string
-	client sarama.ConsumerGroup
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     *sync.WaitGroup
-	stats  stats.Stats
+	logger   *zap.Logger
+	topic    []string
+	config   *sarama.Config
+	client   sarama.Client
+	consumer sarama.ConsumerGroup
+	ctx      context.Context
+	cancel   context.CancelFunc
+	wg       *sync.WaitGroup
+	stats    stats.Stats
 }
 
 func SetupConsumer(logger *zap.Logger, oldest bool, group string, brokers string, topic string, stats stats.Stats) *Kafka {
@@ -32,21 +36,27 @@ func SetupConsumer(logger *zap.Logger, oldest bool, group string, brokers string
 		logger.Panic("Error topic config empty")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	client, err := sarama.NewConsumerGroup(strings.Split(brokers, ","), group, config)
+
+	client, err := sarama.NewClient(strings.Split(brokers, ","), config)
 	if err != nil {
-		logger.Panic("Error creating consumer group client", zap.Error(err))
+		logger.Panic("Error creating Kafka client", zap.Error(err))
+	}
+
+	consumer, err := sarama.NewConsumerGroupFromClient(group, client)
+	if err != nil {
+		logger.Panic("Error creating Kafka consumer group", zap.Error(err))
 	}
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	return &Kafka{logger: logger, topic: []string{topic}, client: client, ctx: ctx, cancel: cancel, wg: wg, stats: stats}
+	return &Kafka{logger: logger, topic: []string{topic}, config: config, client: client, consumer: consumer, ctx: ctx, cancel: cancel, wg: wg, stats: stats}
 }
 
 func (kafka *Kafka) Run() {
 	go func() {
 		defer kafka.wg.Done()
 		for {
-			if err := kafka.client.Consume(kafka.ctx, kafka.topic, kafka); err != nil {
+			if err := kafka.consumer.Consume(kafka.ctx, kafka.topic, kafka); err != nil {
 				kafka.logger.Panic("Error from consumer", zap.Error(err))
 			}
 			// check if context was cancelled, signaling that the consumer should stop
@@ -94,4 +104,45 @@ func (kafka *Kafka) ConsumeClaim(session sarama.ConsumerGroupSession, claim sara
 	}
 
 	return nil
+}
+
+type BrokerStatus struct {
+	ID              int32
+	Addr            string
+	Rack            string
+	Connected       bool
+	ConnectionError error
+}
+
+type KafkaStatus struct {
+	Brokers []BrokerStatus
+	Closed  bool
+	Metrics map[string]map[string]interface{}
+}
+
+func (kafka *Kafka) Status() KafkaStatus {
+	status := KafkaStatus{}
+	for _, broker := range kafka.client.Brokers() {
+		brokerStatus := BrokerStatus{
+			ID:   broker.ID(),
+			Addr: broker.Addr(),
+			Rack: broker.Rack(),
+		}
+		brokerStatus.Connected, brokerStatus.ConnectionError = broker.Connected()
+		status.Brokers = append(status.Brokers, brokerStatus)
+	}
+	status.Closed = kafka.client.Closed()
+	status.Metrics = kafka.config.MetricRegistry.GetAll()
+	return status
+}
+
+func (kafka *Kafka) GetStatusHTTPHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bytes, err := json.MarshalIndent(kafka.Status(), "", "  ")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(bytes)
+	})
 }

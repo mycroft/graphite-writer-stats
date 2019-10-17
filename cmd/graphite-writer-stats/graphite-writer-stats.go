@@ -7,6 +7,8 @@ import (
 	"github.com/criteo/graphite-writer-stats/stats"
 	"go.uber.org/zap"
 	"io/ioutil"
+	"net/http"
+	"strconv"
 )
 
 var (
@@ -39,12 +41,23 @@ func main() {
 	jsonRules, err := ioutil.ReadFile(*config)
 	rules, err := stats.GetRulesFromBytes(logger, jsonRules)
 	if err != nil {
-		logger.Fatal("bad config rule.", zap.String("configFile", *config),zap.Error(err))
+		logger.Fatal("bad config rule.", zap.String("configFile", *config), zap.Error(err))
 	}
 	stats := stats.Stats{Logger: logger, MetricMetadata: stats.MetricMetadata{ComponentsNb: *componentsNb, Rules: rules}}
-	prometheus.SetupPrometheusHTTPServer(logger, int(*port), *endpoint)
+
 	kafka := input.SetupConsumer(logger, *oldest, *group, *brokers, *topic, stats)
 	kafka.Run()
+
+	go func() {
+		portBinding := ":" + strconv.Itoa(int(*port))
+		http.Handle(*endpoint, prometheus.GetPrometheusHTTPHandler())
+		http.Handle("/", kafka.GetStatusHTTPHandler())
+		err := http.ListenAndServe(portBinding, nil)
+		if err != nil {
+			logger.Panic("could not set up HTTP server", zap.Error(err))
+		}
+	}()
+
 	kafka.Wait()
 	kafka.Close()
 }
