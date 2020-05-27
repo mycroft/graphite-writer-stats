@@ -99,7 +99,7 @@ func (kafka *Kafka) Cleanup(sarama.ConsumerGroupSession) error {
 func (kafka *Kafka) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
 		kafka.logger.Debug("Message", zap.ByteString("message", message.Value), zap.Time("timestamp", message.Timestamp), zap.ByteString("key", message.Key))
-		kafka.stats.Process(message.Value)
+		kafka.stats.Process(message)
 		session.MarkMessage(message, "")
 	}
 

@@ -6,11 +6,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// Rules is an array of Rule.
 type Rules struct {
 	Rules []Rule `json:"rules"`
 }
+
+// Rule structure
+// Name will be used in prometheus metrics
+// UseTags: If present and not empty, rule will match if any tags in list is present in metric.
+// If not empty, pattern & applicationNamePosition will be ignored
+// Pattern: Pattern to match the metric; If matching, the ApplicationNamePosition-nth will be used.
 type Rule struct {
 	Name                    string   `json:"name"`
+	UseTags                 []string `json:"use_tags"`
 	Pattern                 []string `json:"pattern"`
 	ApplicationNamePosition uint     `json:"applicationNamePosition"`
 }
