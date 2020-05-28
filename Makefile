@@ -26,3 +26,5 @@ docker-stop:
 	docker stop graphite-writer-stats
 docker-inject:
 	docker exec -i kafka kafka-console-producer --broker-list localhost:9092 --topic metrics
+
+.PHONY: fmt vet link test run

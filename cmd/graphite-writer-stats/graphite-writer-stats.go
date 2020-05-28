@@ -39,7 +39,7 @@ func main() {
 		logger.Fatal("ComponentsNb should be > 0")
 	}
 	jsonRules, err := ioutil.ReadFile(*config)
-	rules, err := stats.GetRulesFromBytes(logger, jsonRules)
+	rules, err := stats.GetRulesFromBytes(jsonRules)
 	if err != nil {
 		logger.Fatal("bad config rule.", zap.String("configFile", *config), zap.Error(err))
 	}

@@ -3,7 +3,6 @@ package stats
 import (
 	"encoding/json"
 	"fmt"
-	"go.uber.org/zap"
 )
 
 // Rules is an array of Rule.
@@ -24,22 +23,33 @@ type Rule struct {
 }
 
 // GetRulesFromBytes loads rules from json contents
-func GetRulesFromBytes(logger *zap.Logger, jsonBytes []byte) (Rules, error) {
+func GetRulesFromBytes(jsonBytes []byte) (Rules, error) {
 	var rules Rules
+
 	err := json.Unmarshal(jsonBytes, &rules)
-	err = checkRules(logger, rules)
+	if err != nil {
+		return rules, err
+	}
+
+	err = CheckRules(rules)
 	return rules, err
 }
 
-func checkRules(logger *zap.Logger, rules Rules) error {
-	var err error
+// CheckRules will return an error if no rule exists or invalid rule is found.
+func CheckRules(rules Rules) error {
 	if len(rules.Rules) <= 0 {
-		zap.L().Warn("No rules defined.")
+		return fmt.Errorf("no rules defined")
 	}
+
 	for i, rule := range rules.Rules {
 		if len(rule.Name) <= 0 {
-			err = fmt.Errorf("Bad rule name `%v` at indice `%v`", rule.Name, i)
+			return fmt.Errorf("Bad rule name `%v` at indice `%v`", rule.Name, i)
+		}
+
+		if len(rule.UseTags) > 0 && len(rule.Pattern) > 0 {
+			return fmt.Errorf("rule `%v` `%v` has tags & patterns defined but are mutually exclusive", rule.Name, i)
 		}
 	}
-	return err
+
+	return nil
 }
