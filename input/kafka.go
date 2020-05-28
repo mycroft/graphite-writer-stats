@@ -14,6 +14,7 @@ import (
 	"syscall"
 )
 
+// Kafka stores and handle the running context of the kafka topic for consumption
 type Kafka struct {
 	logger   *zap.Logger
 	topic    []string
@@ -26,6 +27,7 @@ type Kafka struct {
 	stats    stats.Stats
 }
 
+// SetupConsumer initializes the sarama client & consumer group, and returns the completely filled Kafka structure
 func SetupConsumer(logger *zap.Logger, oldest bool, group string, brokers string, topic string, stats stats.Stats) *Kafka {
 	config := sarama.NewConfig()
 	config.Version = sarama.V2_3_0_0
@@ -52,6 +54,7 @@ func SetupConsumer(logger *zap.Logger, oldest bool, group string, brokers string
 	return &Kafka{logger: logger, topic: []string{topic}, config: config, client: client, consumer: consumer, ctx: ctx, cancel: cancel, wg: wg, stats: stats}
 }
 
+// Run starts the consumer
 func (kafka *Kafka) Run() {
 	go func() {
 		defer kafka.wg.Done()
@@ -66,6 +69,8 @@ func (kafka *Kafka) Run() {
 		}
 	}()
 }
+
+// Wait endlessly for an unrecoverable error or a INT/TERM stopping signal.
 func (kafka *Kafka) Wait() {
 	sigterm := make(chan os.Signal, 1)
 	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
@@ -76,6 +81,8 @@ func (kafka *Kafka) Wait() {
 		kafka.logger.Info("terminating: via signal")
 	}
 }
+
+// Close the Kafka topic before exiting.
 func (kafka *Kafka) Close() {
 	kafka.cancel()
 	kafka.wg.Wait()
@@ -99,13 +106,14 @@ func (kafka *Kafka) Cleanup(sarama.ConsumerGroupSession) error {
 func (kafka *Kafka) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
 		kafka.logger.Debug("Message", zap.ByteString("message", message.Value), zap.Time("timestamp", message.Timestamp), zap.ByteString("key", message.Key))
-		kafka.stats.Process(message.Value)
+		kafka.stats.Process(message)
 		session.MarkMessage(message, "")
 	}
 
 	return nil
 }
 
+// The BrokerStatus has some broker status informations.
 type BrokerStatus struct {
 	ID              int32
 	Addr            string
@@ -114,12 +122,14 @@ type BrokerStatus struct {
 	ConnectionError error
 }
 
+// The KafkaStatus is the list & statuses of the brokers
 type KafkaStatus struct {
 	Brokers []BrokerStatus
 	Closed  bool
 	Metrics map[string]map[string]interface{}
 }
 
+// Status queries the brokers and fills the KafkaStatus structure
 func (kafka *Kafka) Status() KafkaStatus {
 	status := KafkaStatus{}
 	for _, broker := range kafka.client.Brokers() {
@@ -136,6 +146,7 @@ func (kafka *Kafka) Status() KafkaStatus {
 	return status
 }
 
+// GetStatusHTTPHandler returns the http handler to query and retrieve the KafkaStatus structure in json format
 func (kafka *Kafka) GetStatusHTTPHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bytes, err := json.MarshalIndent(kafka.Status(), "", "  ")

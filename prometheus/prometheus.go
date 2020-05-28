@@ -22,16 +22,22 @@ var (
 	})
 )
 
+// GetPrometheusHTTPHandler returns the Prometheus http handler
 func GetPrometheusHTTPHandler() http.Handler {
 	return promhttp.Handler()
 }
 
+// IncDataPointToMetricErrorCounter increments the dataPointTometricErrorCount counter
 func IncDataPointToMetricErrorCounter() {
 	dataPointTometricErrorCount.Inc()
 }
+
+// IncMetricPathDidNotMatchAnyRules increments the dataPointTometricErrorCount counter
 func IncMetricPathDidNotMatchAnyRules() {
 	dataPointTometricErrorCount.Inc()
 }
+
+// IncMetricPathCounter increments an application counter based on its extracted metric
 func IncMetricPathCounter(extractedMetric string, applicationName string, applicationType string) {
 	metricPathCount.WithLabelValues(extractedMetric, applicationName, applicationType).Inc()
 }

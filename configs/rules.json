@@ -1,6 +1,12 @@
 {
   "rules": [
     {
+      "name": "by-tag",
+      "use_tags": [
+        "appname"
+      ]
+    },
+    {
       "name": "aggreg",
       "pattern": [
         "foo",
