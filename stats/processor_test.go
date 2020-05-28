@@ -18,7 +18,7 @@ func TestProcess(t *testing.T) {
 	startbyAppRule := Rule{"start-by-app", []string{}, []string{}, 0}
 	rulesTab := []Rule{aggregRule, anotheraggrRule, aggregAllRule, legacybarRule, startWithCriteoRule, startbyAppRule}
 
-	stats := Stats{Logger: logger, MetricMetadata: MetricMetadata{
+	stats := Stats{MetricMetadata: MetricMetadata{
 		Rules:        Rules{Rules: rulesTab},
 		ComponentsNb: 3,
 	}}
@@ -26,19 +26,19 @@ func TestProcess(t *testing.T) {
 	metricDatapoint := []byte("foo.aggreg.cas.value 3.2 1498887")
 	sm := new(sarama.ConsumerMessage)
 	sm.Value = metricDatapoint
-	err := stats.Process(sm)
+	err := stats.Process(logger, sm)
 	if err != nil {
 		t.Errorf("failed to process '%v'", string(metricDatapoint))
 	}
 
 	sm.Value = nil
-	err = stats.Process(sm)
+	err = stats.Process(logger, sm)
 	if err == nil {
 		t.Errorf("process a nil metric should return an error.")
 	}
 
 	sm.Value = []byte("foo.498887")
-	err = stats.Process(sm)
+	err = stats.Process(logger, sm)
 	if err == nil {
 		t.Errorf("process a malformed metric should return an error: '%v'.", string(sm.Value))
 	}
