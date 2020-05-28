@@ -9,17 +9,20 @@ import (
 	"go.uber.org/zap"
 )
 
+// Stats is used to log messages & configuration
 type Stats struct {
 	Logger         *zap.Logger
 	MetricMetadata MetricMetadata
 }
 
+// The Metric structure only contains its path & tags; it doesn't store timestamp or value
 type Metric struct {
 	// A Metric without its timestamp or value
 	Path string
 	Tags map[string]string
 }
 
+// BuildMetricFromMessage is retrieving a Metric from a consumed message.
 func BuildMetricFromMessage(message *sarama.ConsumerMessage) (Metric, error) {
 	metric := Metric{}
 	metric.Tags = make(map[string]string, 0)
@@ -52,6 +55,7 @@ func (stats *Stats) process(metric Metric) {
 	prometheus.IncMetricPathCounter(extractedMetric.ExtractedMetric, extractedMetric.ApplicationName, string(extractedMetric.ApplicationType))
 }
 
+// Process a consumer kafka message (building metric & processing)
 func (stats *Stats) Process(message *sarama.ConsumerMessage) error {
 	metric, err := BuildMetricFromMessage(message)
 	if err != nil {

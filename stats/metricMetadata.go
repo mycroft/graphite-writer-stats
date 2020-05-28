@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// MetricMetadata contains configured rules & number of desired components
 type MetricMetadata struct {
 	Rules        Rules
 	ComponentsNb uint
@@ -17,6 +18,11 @@ type ExtractedMetric struct {
 	ApplicationType string
 }
 
+// Extract from the metric the application name if possible based on loaded rules
+// It will:
+// - Extract components from the metricPath
+// - Run rules
+// - Build & return the ExtractMetric structure
 func (stats *Stats) getMetric(metricPath string, metricTags map[string]string) ExtractedMetric {
 	statsMetric := ExtractedMetric{ExtractedMetric: "None", ApplicationName: "None", ApplicationType: "None"}
 	components := getComponents(metricPath, stats.MetricMetadata.ComponentsNb)
@@ -37,6 +43,7 @@ func (stats *Stats) getMetric(metricPath string, metricTags map[string]string) E
 	return statsMetric
 }
 
+// getComponents splits a metricPath according to the given componentsLen
 func getComponents(metricPath string, componentsLen uint) []string {
 
 	currentIndex := 0

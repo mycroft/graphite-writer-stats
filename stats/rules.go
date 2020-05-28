@@ -23,6 +23,7 @@ type Rule struct {
 	ApplicationNamePosition uint     `json:"applicationNamePosition"`
 }
 
+// GetRulesFromBytes loads rules from json contents
 func GetRulesFromBytes(logger *zap.Logger, jsonBytes []byte) (Rules, error) {
 	var rules Rules
 	err := json.Unmarshal(jsonBytes, &rules)
