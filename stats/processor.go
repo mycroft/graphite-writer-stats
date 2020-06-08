@@ -11,7 +11,6 @@ import (
 
 // Stats is used to log messages & configuration
 type Stats struct {
-	Logger         *zap.Logger
 	MetricMetadata MetricMetadata
 }
 
@@ -47,22 +46,19 @@ func BuildMetricFromMessage(message *sarama.ConsumerMessage) (Metric, error) {
 	return metric, nil
 }
 
-func (stats *Stats) process(metric Metric) {
-	extractedMetric := stats.getMetric(metric.Path, metric.Tags)
-	if ce := stats.Logger.Check(zap.DebugLevel, "metrics"); ce != nil {
-		ce.Write(zap.Any("metric", metric.Path))
-	}
-	prometheus.IncMetricPathCounter(extractedMetric.ExtractedMetric, extractedMetric.ApplicationName, string(extractedMetric.ApplicationType))
-}
-
 // Process a consumer kafka message (building metric & processing)
-func (stats *Stats) Process(message *sarama.ConsumerMessage) error {
+func (stats *Stats) Process(logger *zap.Logger, message *sarama.ConsumerMessage) error {
 	metric, err := BuildMetricFromMessage(message)
 	if err != nil {
 		return err
 	}
 
-	stats.process(metric)
+	extractedMetric := stats.getMetric(logger, metric.Path, metric.Tags)
+	if ce := logger.Check(zap.DebugLevel, "metrics"); ce != nil {
+		ce.Write(zap.Any("metric", metric.Path))
+	}
+
+	prometheus.IncMetricPathCounter(extractedMetric.ExtractedMetric, extractedMetric.ApplicationName, string(extractedMetric.ApplicationType))
 
 	return nil
 }

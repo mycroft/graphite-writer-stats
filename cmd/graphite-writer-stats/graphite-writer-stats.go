@@ -39,25 +39,40 @@ func main() {
 		logger.Fatal("ComponentsNb should be > 0")
 	}
 	jsonRules, err := ioutil.ReadFile(*config)
-	rules, err := stats.GetRulesFromBytes(logger, jsonRules)
+	rules, err := stats.GetRulesFromBytes(jsonRules)
 	if err != nil {
 		logger.Fatal("bad config rule.", zap.String("configFile", *config), zap.Error(err))
 	}
-	stats := stats.Stats{Logger: logger, MetricMetadata: stats.MetricMetadata{ComponentsNb: *componentsNb, Rules: rules}}
 
-	kafka := input.SetupConsumer(logger, *oldest, *group, *brokers, *topic, stats)
-	kafka.Run()
+	processor := input.CreateProcessor(logger)
+	err = processor.SetupConsumer(*brokers, *group, *topic, *oldest)
+	if err != nil {
+		logger.Fatal("could not setup consumer: %v", zap.Error(err))
+	}
 
+	// Prepare configuration
+	stats := stats.Stats{
+		MetricMetadata: stats.MetricMetadata{
+			ComponentsNb: *componentsNb,
+			Rules:        rules,
+		},
+	}
+
+	// Run the Processor using the configuration; This operation will run a goroutine
+	processor.Run(stats)
+
+	// Start the prometheus endpoint
 	go func() {
 		portBinding := ":" + strconv.Itoa(int(*port))
 		http.Handle(*endpoint, prometheus.GetPrometheusHTTPHandler())
-		http.Handle("/", kafka.GetStatusHTTPHandler())
+		http.Handle("/", processor.GetStatusHTTPHandler())
 		err := http.ListenAndServe(portBinding, nil)
 		if err != nil {
 			logger.Panic("could not set up HTTP server", zap.Error(err))
 		}
 	}()
 
-	kafka.Wait()
-	kafka.Close()
+	// Endless Wait
+	processor.Wait()
+	processor.Close()
 }

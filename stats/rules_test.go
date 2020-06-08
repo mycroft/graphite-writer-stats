@@ -1,7 +1,6 @@
 package stats
 
 import (
-	"go.uber.org/zap/zaptest"
 	"reflect"
 	"testing"
 )
@@ -69,7 +68,6 @@ func TestGetRules(t *testing.T) {
     }
   ]
 }`)
-	logger := zaptest.NewLogger(t)
 	tagRule := Rule{"tag-rule", []string{"appname"}, []string{}, 0}
 	aggregRule := Rule{"aggreg", []string{}, []string{"foo", "aggreg"}, 2}
 	anotheraggrRule := Rule{"anotheraggr", []string{}, []string{"foo", "anotheraggr"}, 2}
@@ -78,7 +76,7 @@ func TestGetRules(t *testing.T) {
 	startWithCriteoRule := Rule{"start-by-foo", []string{}, []string{"foo"}, 1}
 	startbyAppRule := Rule{"start-by-app", []string{}, nil, 0}
 	rulesExpected := []Rule{tagRule, aggregRule, anotheraggrRule, aggregAllRule, legacybarRule, startWithCriteoRule, startbyAppRule}
-	rules, err := GetRulesFromBytes(logger, jsonRules)
+	rules, err := GetRulesFromBytes(jsonRules)
 
 	for i := range rules.Rules {
 		if !reflect.DeepEqual(rules.Rules[i], rulesExpected[i]) {
@@ -91,7 +89,6 @@ func TestGetRules(t *testing.T) {
 	}
 }
 func TestCheckRules(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	// Name, UseTags, Pattern, ApplicationNamePosition
 	aggregRule := Rule{"aggreg", []string{}, []string{"foo", "aggreg"}, 2}
 	anotheraggrRule := Rule{"anotheraggr", []string{}, []string{"foo", "anotheraggr"}, 2}
@@ -100,18 +97,28 @@ func TestCheckRules(t *testing.T) {
 	startWithCriteoRule := Rule{"start-by-foo", []string{}, []string{"foo"}, 1}
 	startbyAppRule := Rule{"start-by-app", []string{}, nil, 0}
 	rules := Rules{Rules: []Rule{aggregRule, anotheraggrRule, aggregAllRule, legacybarRule, startWithCriteoRule, startbyAppRule}}
-	err := checkRules(logger, rules)
+	err := CheckRules(rules)
 	if err != nil {
 		t.Errorf("should not get the error: `%v`", err)
 	}
 	startbyAppRule = Rule{"", []string{}, nil, 0}
 	rules = Rules{Rules: []Rule{aggregRule, anotheraggrRule, aggregAllRule, legacybarRule, startWithCriteoRule, startbyAppRule}}
-	err = checkRules(logger, rules)
+	err = CheckRules(rules)
 	if err == nil {
 		t.Errorf("the rule should have a name: `%v`", err)
 	}
-	err = checkRules(logger, Rules{nil})
-	if err != nil {
-		t.Error("rules is not mandatory")
+	err = CheckRules(Rules{nil})
+	if err == nil {
+		t.Error("having a least one rule is mandatory")
+	}
+}
+
+func TestErrorRules(t *testing.T) {
+	rule := Rule{"rule1", []string{"foo"}, []string{"foo"}, 1}
+
+	rules := Rules{Rules: []Rule{rule}}
+	err := CheckRules(rules)
+	if err == nil {
+		t.Errorf("an error should happen when parsing rules: `%v`", rules)
 	}
 }

@@ -112,12 +112,12 @@ func TestLegacyAndTags(t *testing.T) {
 	rule1 := Rule{"rule-pb", []string{}, []string{"appname"}, 1}
 	ruleLast := Rule{"last-rule", []string{}, []string{}, 0}
 
-	stats := Stats{Logger: logger, MetricMetadata: MetricMetadata{
+	stats := Stats{MetricMetadata: MetricMetadata{
 		Rules:        Rules{Rules: []Rule{rule, rule1, ruleLast}},
 		ComponentsNb: 3,
 	}}
 
-	extractedMetric := stats.getMetric(metric.Path, metric.Tags)
+	extractedMetric := stats.getMetric(logger, metric.Path, metric.Tags)
 
 	if extractedMetric.ApplicationName != "testaroo" {
 		t.Errorf("Invalid appname found: %v != %v", extractedMetric.ApplicationName, "testaroo")
@@ -125,14 +125,14 @@ func TestLegacyAndTags(t *testing.T) {
 
 	metric = Metric{Path: "a.b.c.d", Tags: map[string]string{"foo": "bar", "invalid": "testaroo"}}
 
-	extractedMetric = stats.getMetric(metric.Path, metric.Tags)
+	extractedMetric = stats.getMetric(logger, metric.Path, metric.Tags)
 	if extractedMetric.ApplicationName != "a" {
 		t.Errorf("Invalid appname found: %v != %v", extractedMetric.ApplicationName, "a")
 	}
 
 	metric = Metric{Path: "appname.b.c.d", Tags: map[string]string{"foo": "bar", "invalid": "testaroo"}}
 
-	extractedMetric = stats.getMetric(metric.Path, metric.Tags)
+	extractedMetric = stats.getMetric(logger, metric.Path, metric.Tags)
 	if extractedMetric.ApplicationName != "b" {
 		t.Errorf("Invalid appname found: %v != %v", extractedMetric.ApplicationName, "b")
 	}

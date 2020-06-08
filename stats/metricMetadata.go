@@ -23,12 +23,12 @@ type ExtractedMetric struct {
 // - Extract components from the metricPath
 // - Run rules
 // - Build & return the ExtractMetric structure
-func (stats *Stats) getMetric(metricPath string, metricTags map[string]string) ExtractedMetric {
+func (stats *Stats) getMetric(logger *zap.Logger, metricPath string, metricTags map[string]string) ExtractedMetric {
 	statsMetric := ExtractedMetric{ExtractedMetric: "None", ApplicationName: "None", ApplicationType: "None"}
 	components := getComponents(metricPath, stats.MetricMetadata.ComponentsNb)
 	rule := getRule(components, metricTags, stats.MetricMetadata.Rules)
 	if rule.Name == "" {
-		stats.Logger.Warn("Metric Path did not match any rules", zap.String("metricPath", metricPath))
+		logger.Warn("Metric Path did not match any rules", zap.String("metricPath", metricPath))
 	} else if int(rule.ApplicationNamePosition) < len(components) {
 		statsMetric.ApplicationType = rule.Name // rule.Name is check in rules.go
 		if tag, hasTag := getMatchingTag(metricTags, rule); hasTag {
@@ -38,7 +38,7 @@ func (stats *Stats) getMetric(metricPath string, metricTags map[string]string) E
 		}
 		statsMetric.ExtractedMetric = strings.Join(components, ".")
 	} else {
-		stats.Logger.Error("bad metric ", zap.String("metricPath", metricPath), zap.String("rule", rule.Name))
+		logger.Error("bad metric ", zap.String("metricPath", metricPath), zap.String("rule", rule.Name))
 	}
 	return statsMetric
 }
@@ -62,8 +62,9 @@ func getComponents(metricPath string, componentsLen uint) []string {
 	return components
 }
 
+// Return the matching tag between the current rule and available tags
 func getMatchingTag(tags map[string]string, rule Rule) (string, bool) {
-	if 0 == len(rule.UseTags) {
+	if 0 == len(tags) || 0 == len(rule.UseTags) {
 		return "", false
 	}
 
