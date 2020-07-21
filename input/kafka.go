@@ -4,15 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Shopify/sarama"
-	"github.com/criteo/graphite-writer-stats/stats"
-	"go.uber.org/zap"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/Shopify/sarama"
+	"go.uber.org/zap"
+
+	"github.com/criteo/graphite-writer-stats/prometheus"
+	"github.com/criteo/graphite-writer-stats/stats"
 )
 
 // KafkaConfiguration stores kafka related configuration
@@ -33,6 +36,7 @@ type KafkaProcessor struct {
 	cancel      context.CancelFunc
 	wg          *sync.WaitGroup
 	stats       stats.Stats
+	contexts    map[int32]prometheus.PartitionContext
 }
 
 // The BrokerStatus has some broker status informations.
@@ -54,7 +58,8 @@ type KafkaStatus struct {
 // CreateProcessor initialize the main KafkaProcessor structure
 func CreateProcessor(logger *zap.Logger) *KafkaProcessor {
 	return &KafkaProcessor{
-		logger: logger,
+		logger:   logger,
+		contexts: make(map[int32]prometheus.PartitionContext),
 	}
 }
 
@@ -90,6 +95,11 @@ func (processor *KafkaProcessor) SetupConsumer(brokers string, group string, top
 		return fmt.Errorf("error creating kafka consumer: %v", err)
 	}
 
+	err = prometheus.RegisterKafkaConsumerMetrics("sarama", processor.kafkaConfig.config)
+	if err != nil {
+		return fmt.Errorf("Fail to register kafka consumer metrics: %v", err)
+	}
+
 	processor.wg = &sync.WaitGroup{}
 	processor.wg.Add(1)
 
@@ -103,7 +113,6 @@ func (processor *KafkaProcessor) Run(stats stats.Stats) {
 	go func() {
 		defer processor.wg.Done()
 		for {
-			fmt.Println(processor.ctx, processor.kafkaConfig.topics, processor)
 			if err := processor.consumer.Consume(processor.ctx, processor.kafkaConfig.topics, processor); err != nil {
 				processor.logger.Panic("Error from consumer", zap.Error(err))
 			}
@@ -139,7 +148,31 @@ func (processor *KafkaProcessor) Close() {
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim
-func (processor *KafkaProcessor) Setup(sarama.ConsumerGroupSession) error {
+func (processor *KafkaProcessor) Setup(session sarama.ConsumerGroupSession) error {
+
+	// Snapshot assigned partitions
+	currentPartitions := make(map[int32]bool)
+	for partition := range processor.contexts {
+		currentPartitions[partition] = true
+	}
+
+	// Create Contexts if required.
+	for _, topic := range processor.kafkaConfig.topics {
+		for _, partition := range session.Claims()[topic] {
+			if _, ok := processor.contexts[partition]; !ok {
+				processor.contexts[partition] = prometheus.NewPartitionContext(partition)
+			}
+
+			delete(currentPartitions, partition)
+		}
+	}
+
+	// Clean up unused contexts
+	for partition := range currentPartitions {
+		processor.contexts[partition].Destroy()
+		delete(processor.contexts, partition)
+	}
+
 	return nil
 }
 
@@ -151,6 +184,9 @@ func (processor *KafkaProcessor) Cleanup(sarama.ConsumerGroupSession) error {
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (processor *KafkaProcessor) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
+		if message.Offset%1000 == 0 {
+			prometheus.MonitorConsumerLag(processor.contexts[claim.Partition()], claim, message)
+		}
 		processor.logger.Debug("Message", zap.ByteString("message", message.Value), zap.Time("timestamp", message.Timestamp), zap.ByteString("key", message.Key))
 		processor.stats.Process(processor.logger, message)
 		session.MarkMessage(message, "")
